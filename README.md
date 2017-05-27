@@ -1,53 +1,72 @@
-#**Finding Lane Lines on the Road** 
-[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
+# **Finding Lane Lines on the Road** 
 
-<img src="examples/laneLines_thirdPass.jpg" width="480" alt="Combined Image" />
+## Setup
 
-Overview
----
+### Installation
 
-When we drive, we use our eyes to decide where to go.  The lines on the road that show us where the lanes are act as our constant reference for where to steer the vehicle.  Naturally, one of the first things we would like to do in developing a self-driving car is to automatically detect lane lines using an algorithm.
+Runs Jupyter Notebook in a Docker container with `udacity/carnd-term1-starter-kit` image from ![Udacity][docker installation].
 
-In this project you will detect lane lines in images using Python and OpenCV.  OpenCV means "Open-Source Computer Vision", which is a package that has many useful tools for analyzing images.  
-
-To complete the project, two files will be submitted: a file containing project code and a file containing a brief write up explaining your solution. We have included template files to be used both for the [code](https://github.com/udacity/CarND-LaneLines-P1/blob/master/P1.ipynb) and the [writeup](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md).The code file is called P1.ipynb and the writeup template is writeup_template.md 
-
-To meet specifications in the project, take a look at the requirements in the [project rubric](https://review.udacity.com/#!/rubrics/322/view)
+```
+cd ~/src/CarND-LaneLines-P1
+docker run -it --rm -p 8888:8888 -v `pwd`:/src udacity/carnd-term1-starter-kit
+```
+Go to `localhost:8888`
 
 
-Creating a Great Writeup
----
-For this project, a great writeup should provide a detailed response to the "Reflection" section of the [project rubric](https://review.udacity.com/#!/rubrics/322/view). There are three parts to the reflection:
+## Reflection
 
-1. Describe the pipeline
+### 1. Describe your pipeline. As part of the description, explain how you modified the draw_lines() function.
 
-2. Identify any shortcomings
+**My pipeline**
 
-3. Suggest possible improvements
+My pipeline consists of 6 steps. First, I convert the image to grayscale, then I apply a Gaussian blur to the image. Step 3 applies the Canny Transform; I've chosen a `low_threshold=1` and `high_threshold=300`. Before drawing the Hough lines, I limited the area in a polygon shape where the lanes are. Finally applying the Hough lines took a little more iterations and fine tuning _(see my paramters in the code)_ to get good enough. Step 6 is just overlaying the original image with our Hough lines.
 
-We encourage using images in your writeup to demonstrate how your pipeline works.  
+![alt text][image0]
+Original image
 
-All that said, please be concise!  We're not looking for you to write a book here: just a brief description.
+![alt text][image1]
+Hough Lines
 
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup. Here is a link to a [writeup template file](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md). 
+A big part of generating Hough lines is **drawing the lines** themselves. Well, it's good enough if you already have a continuous straight line (like the far left/far right lane lines), but lane lines are typically dashed. In order for a self-driving car to know where it has to go at all times, it makes more sense to extrapolate the dashed lines to a straight continuous line as well.
+
+The first thing that came to mind is **splitting the lane lines** into left and right by their slopes, respectively. If the slope is negative I assigned it to the right line and if the slope is positive I assigned it to the left line. I added a moving average over the slopes in order to include only the points that fell within a tolerance level of 0.1 divergence from the (left/right)SlopeAvg.
+
+Over the arrays of 2D tuples I ran the OpenCV function `cv2.fitLine(points, distType, param, reps, aeps[, line])` in order to get vector of 4 elements `[vx, vy, x, y]`, respectively x-vector, y-vector, and a point on the line defined x and y coordinates. With this information I was able to calculate the slope and intercept of both lines.
+
+I appended the four variables `(rightIntercept, rightSlope, leftIntercept, leftSlope)` to a ![deque][deque], which is faster than a list in terms of memory and can be limited to a maximum length. I chose a `maxLen` of 5, which means the last 5 frames will be saved to the deque. I averaged the intercepts and slopes over the length of the previous frames.
+
+Next, I set the start and end values for the y-axis. Basically limiting the frame from the bottom of the frame to around 2/3 into the frame vertically. By setting the y values I am able to calculate the start and end x values for both lines according to their intercept and slope.
+
+Finally, I have all information to draw to an individual line for the left and right lane lines with the OpenCV function `cv2.line(img, pt1, pt2, color[, thickness[, lineType[, shift]]])`.
+
+![alt text][image2]
+Original image and Hough lines
+
+**Applying the pipeline to videos**
+Using MoviePy's function `fl_image` – a filter to modify a series of frames – takes my function `process_image(image)`, which is just the pipeline `lane_finder(image)` used for the image annotation described above. Please find annotated video files in in *test_videos_output*.
+
+**Alternative extrapolation methods**
+An alternative method for extrapolating the lines is using numpy's `polyfit()` function, which would deliver a similar result for a basic example but less sophisticated for a more complex frame.
 
 
-The Project
----
+### 2. Identify potential shortcomings with your current pipeline
 
-## If you have already installed the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) you should be good to go!   If not, you should install the starter kit to get started on this project. ##
+The images and videos the pipeline has been tested on show mainly straight roads with clearly visible lane lines. Hence the pipeline and in particular the parameters in the Canny edge detection and Hough lines detection are biased. I ran the pipeline against the _challenge_ video, which shows a curved road with lots of noice near to the left lane. Without adjusting parameters in the Canny edge and Hough lines detections, the annotations spuriously change directions at one point in the output video.
 
-**Step 1:** Set up the [CarND Term1 Starter Kit](https://classroom.udacity.com/nanodegrees/nd013/parts/fbf77062-5703-404e-b60c-95b78b2f3f9e/modules/83ec35ee-1e02-48a5-bdb7-d244bd47c2dc/lessons/8c82408b-a217-4d09-b81d-1bda4c6380ef/concepts/4f1870e0-3849-43e4-b670-12e6f2d4b7a7) if you haven't already.
+Currently the polygon – limiting the area onto which Hough lines detection is applied – is a fixed shape, which assumes that there won't be a significant change in the road/image.
 
-**Step 2:** Open the code in a Jupyter Notebook
+One obvious shortcoming is if there are no lane lines, i.e. if it's dark outside or a longer bridge/tunnel without dimming the images so that no lane lines can be detected.
 
-You will complete the project code in a Jupyter notebook.  If you are unfamiliar with Jupyter Notebooks, check out <A HREF="https://www.packtpub.com/books/content/basics-jupyter-notebook-and-python" target="_blank">Cyrille Rossant's Basics of Jupyter Notebook and Python</A> to get started.
 
-Jupyter is an Ipython notebook where you can run blocks of code and see results interactively.  All the code for this project is contained in a Jupyter notebook. To start Jupyter in your browser, use terminal to navigate to your project directory and then run the following command at the terminal prompt (be sure you've activated your Python 3 carnd-term1 environment as described in the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) installation instructions!):
+### 3. Suggest possible improvements to your pipeline
 
-`> jupyter notebook`
+One of the biggest improvements would be to continue tuning the Canny edge and Hough lines parameters. 
 
-A browser window will appear showing the contents of the current directory.  Click on the file called "P1.ipynb".  Another browser window will appear displaying the notebook.  Follow the instructions in the notebook to complete the project.  
+Instead of extrapolating a straight line, it may also be possible to extrapolate a polygon line based on the slopes of the previous lines/frames. That way annotating curves becomes more feasible and defensible against noise near the lanes.
 
-**Step 3:** Complete the project and submit both the Ipython notebook and the project writeup
 
+[docker installation]: https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/doc/configure_via_docker.md
+[deque]: https://docs.python.org/3/library/collections.html#collections.deque
+[image0]: ./test_images/solidWhiteCurve.jpg "Original Image"
+[image1]: ./test_images_output/report_hough_solidWhiteCurve.jpg "Hough Lines"
+[image2]: ./test_images_output/annotated_solidWhiteCurve.jpg "Hough Lines on image"
