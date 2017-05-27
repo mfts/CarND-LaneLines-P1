@@ -4,7 +4,7 @@
 
 ### Installation
 
-Runs Jupyter Notebook in a Docker container with `udacity/carnd-term1-starter-kit` image from ![Udacity][docker installation].
+Runs Jupyter Notebook in a Docker container with `udacity/carnd-term1-starter-kit` image from [Udacity][docker installation].
 
 ```
 cd ~/src/CarND-LaneLines-P1
@@ -33,7 +33,7 @@ The first thing that came to mind is **splitting the lane lines** into left and 
 
 Over the arrays of 2D tuples I ran the OpenCV function `cv2.fitLine(points, distType, param, reps, aeps[, line])` in order to get vector of 4 elements `[vx, vy, x, y]`, respectively x-vector, y-vector, and a point on the line defined x and y coordinates. With this information I was able to calculate the slope and intercept of both lines.
 
-I appended the four variables `(rightIntercept, rightSlope, leftIntercept, leftSlope)` to a ![deque][deque], which is faster than a list in terms of memory and can be limited to a maximum length. I chose a `maxLen` of 5, which means the last 5 frames will be saved to the deque. I averaged the intercepts and slopes over the length of the previous frames.
+I appended the four variables `(rightIntercept, rightSlope, leftIntercept, leftSlope)` to a [deque][deque], which is faster than a list in terms of memory and can be limited to a maximum length. I chose a `maxLen` of 5, which means the last 5 frames will be saved to the deque. I averaged the intercepts and slopes over the length of the previous frames.
 
 Next, I set the start and end values for the y-axis. Basically limiting the frame from the bottom of the frame to around 2/3 into the frame vertically. By setting the y values I am able to calculate the start and end x values for both lines according to their intercept and slope.
 
